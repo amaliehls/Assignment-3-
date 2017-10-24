@@ -13,7 +13,7 @@ DemoData <- read.delim("~/Desktop/R Saves Semester 3/Assignment 3/DemoData.txt")
 subject1 <- read.delim("~/Desktop/R Saves Semester 3/Assignment 3/Pitch/Study1D0S101T2_f0.txt")
 Articulation <- read.csv("~/Desktop/R Saves Semester 3/Assignment 3/Articulation.txt")
 
-library(crqa); library(tseriesChaos); library(nonlinearTseries); library(SparseM); library(lme4); library(plyr)
+library(crqa); library(tseriesChaos); library(nonlinearTseries); library(SparseM); library(lme4); library(plyr); library(MuMIn)
 ```
 
 ## Assignment 2 - Part 1 - Assessing voice in schizophrenia
@@ -80,6 +80,7 @@ for (file in files)
 
 3. Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
 - Bonus points: cross-validate the model and report the betas and standard errors from all rounds to get an idea of how robust the estimates are. 
+
 3a. Is study a significant predictor in these models? What should you infer from this? Does study interact with diagnosis? What should you infer from this?
 
 ```{r}
@@ -104,9 +105,12 @@ mergedata = merge(DemoData,Articulation, by = "Subject")
 #make a trial coloumn
 mergedata$trial = substr(mergedata$soundname, 14, 15) %>% as.numeric
 
-#Models
-Model_syll = lmer(nsyll ~ Diagnosis * trial + (1+trial|Subject), data = data_all)
-modelr::rmse(Model_syll, data_all)
+#Models 
+# 1+trial|Subjects allow the model to make different intercepts and slopes over time for each subject
+Model_syll = lmer(nsyll ~ Diagnosis * trial + (1+trial|Subject), data = mergedata)
+
+Model_pause = lmer(npause ~ Diagnosis * trial + (1+trial|Subject), data = mergedata)
+
 
 ```
 
