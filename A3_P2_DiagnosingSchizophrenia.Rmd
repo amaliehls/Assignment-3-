@@ -7,6 +7,13 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+setwd("~/Desktop/R Saves Semester 3/Assignment 3")
+df_features = read.csv("~/Desktop/R Saves Semester 3/Assignment 3/df_final.dms")
+#Remove the columns X and X.1
+df_features$X.1 = NULL
+df_features$X = NULL
+
+
 ```
 
 ## Assignment 3 - Diagnosing schizophrenia from voice
