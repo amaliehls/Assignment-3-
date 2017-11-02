@@ -54,8 +54,8 @@ error.train1=NULL
 error.test1=NULL
 for (i in folds)
   {
-  testD=df_features[df_features$Subject %in% i,]
-  trainD=df_features[!(df_features$Subject %in% i),]
+  testD=df_features[df_features$trial %in% i,]
+  trainD=df_features[!(df_features$trial %in% i),]
   Mtrain = lme4::glmer(diagnosis~range + (1+trial|Subject), family = "binomial", data = df_features)
   pred = predict(Mtrain,testD, allow.new.levels=TRUE)
   error.train1[n]=modelr::rmse(Mtrain,trainD)
@@ -64,6 +64,10 @@ for (i in folds)
   n=n+1
   
 }
+
+error.test1
+error.train1
+
 ```
 
 N.B. the predict() function generates probabilities (the full scale between 0 and 1). A probability > .5 indicates a choice of 1, below a choice of 0.
