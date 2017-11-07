@@ -33,13 +33,13 @@ summary(modelrange)
 
 Calculate the different performance measures (accuracy, sensitivity, specificity, PPV, NPV, ROC curve) on a logistic regression using the full dataset. Don't forget the random effects!
 ```{r}
-modelrange2 = lme4::glmer(diagnosis~range + (1+trial|Subject), family = "binomial", data = df_features)
+modelrange2 = lme4::glmer(diagnosis~range + (1+trial|Subject)+(1 + diagnosis + trial|Subject), family = "binomial", data = df_features)
 summary(modelrange2)
 
 #Create confusion matrix (0.5??)
 df_features$PredictionsPerc = predict(modelrange2)
-df_features$Predictions[df_features$PredictionsPerc>0.5] = "1"
-df_features$Predictions[df_features$PredictionsPerc<0.5] = "0"
+df_features$Predictions[df_features$PredictionsPerc>0] = "1"
+df_features$Predictions[df_features$PredictionsPerc<0] = "0"
 confusionMatrix(data = df_features$Predictions,reference = df_features$diagnosis, positive = "0")
 
 ```
