@@ -137,7 +137,7 @@ testdf = data.frame(test_accuracy,test_sen,test_spec,test_npv,test_ppv,test_auc,
 ```{r}
 #i = predictor, x = data, 
 
-cvalid = function(i, p){
+cvalid = function(i){
 
 test_accuracy=NULL
 test_sen = NULL
@@ -179,10 +179,46 @@ testdf = data.frame(mean(test_accuracy),mean(test_sen),mean(test_spec),mean(test
 
 return(testdf)
 }
+
+PR = cvalid(lme4::glmer(diagnosis~PR + trial + (1+trial|Subject), family = "binomial", data = trainD, control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE)))
+PR$predictor = "PR"
+
+DET = cvalid(lme4::glmer(diagnosis~DET + trial + (1+trial|Subject), family = "binomial", data = trainD, control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE)))
+DET$predictor = "DET"
+
+NRLINE = cvalid(lme4::glmer(diagnosis~NRLINE + trial + (1+trial|Subject), family = "binomial", data = trainD, control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE)))
+NRLINE$predictor = "NRLINE"
+
+maxL = cvalid(lme4::glmer(diagnosis~maxL + trial + (1+trial|Subject), family = "binomial", data = trainD, control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE)))
+maxL$predictor = "maxL"
+
+L = cvalid(lme4::glmer(diagnosis~L + trial + (1+trial|Subject), family = "binomial", data = trainD, control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE)))
+L$predictor = "L"
+
+ENTR = cvalid(lme4::glmer(diagnosis~ENTR + trial + (1+trial|Subject), family = "binomial", data = trainD, control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE)))
+ENTR$predictor = "ENTR"
+
+LAM = cvalid(lme4::glmer(diagnosis~LAM + trial + (1+trial|Subject), family = "binomial", data = trainD, control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE)))
+LAM$predictor = "LAM"
+
+TT = cvalid(lme4::glmer(diagnosis~TT + trial + (1+trial|Subject), family = "binomial", data = trainD, control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE)))
+TT$predictor = "TT"
+
+sd = cvalid(lme4::glmer(diagnosis~sd + trial + (1+trial|Subject), family = "binomial", data = trainD, control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE)))
+sd$predictor = "sd"
+
+range = cvalid(lme4::glmer(diagnosis~range + trial + (1+trial|Subject), family = "binomial", data = trainD, control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE)))
+range$predictor = "range"
+
+predictor_df = rbind(PR, DET, NRLINE, maxL, L, ENTR, LAM, TT, sd, range)
+
+#Based on area under the curve range is the best predictor for diagnosis. It is also the best predictor in terms of accuracy and specificity
 ```
 
 
+```{r}
 
+```
 
 ### Question 3 - Which combination of acoustic predictors is best for diagnosing schizophrenia?
 
