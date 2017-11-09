@@ -7,15 +7,6 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-setwd("~/Desktop/R Saves Semester 3/Assignment 3")
-library(crqa); library(tseriesChaos); library(nonlinearTseries); library(SparseM); library(lme4); library(dplyr); library(lmerTest); library(MuMIn): library(caret)
-df_features = read.csv("~/Desktop/R Saves Semester 3/Assignment 3/df_final.dms")
-#Remove the columns X and X.1
-df_features$X.1 = NULL
-df_features$X = NULL
-#Remove 0S and 1S in subject
-df_features$Subject = substr(df_features$Subject,3,5)
-
 ```
 
 ## Assignment 3 - Diagnosing schizophrenia from voice
@@ -23,18 +14,37 @@ df_features$Subject = substr(df_features$Subject,3,5)
 In the previous part of the assignment you generated a bunch of "features", that is, of quantitative descriptors of voice in schizophrenia, focusing on pitch.
 In the course of this assignment we will use them to try to automatically diagnose schizophrenia from voice only, that is, relying on the set of features you produced last time, we will try to produce an automated classifier.
 
-### Question 1
-Build a logistic regression to see whether you can diagnose schizophrenia from pitch range only.
-
-```{r}
-modelrange = glm(diagnosis~range,family = "binomial",data = df_features)
-summary(modelrange)
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("~/Desktop/R Saves Semester 3/Assignment 3")
+library(crqa); library(tseriesChaos); library(nonlinearTseries); library(SparseM); library(lme4); library(dplyr); library(lmerTest); library(MuMIn): library(caret); library(pROC)
+df_features = read.csv("~/Desktop/R Saves Semester 3/Assignment 3/df_final.dms")
+#Remove the columns X and X.1
+df_features$X.1 = NULL
+df_features$X = NULL
+#Remove 0S and 1S in subject
+df_features$Subject = substr(df_features$Subject,3,5)
+df_features$Subject=as.factor(df_features$Subject)
 ```
 
+### Question 1: Can you diagnose schizophrenia from pitch range only? If so, how well?
+
+Build a logistic regression to see whether you can diagnose schizophrenia from pitch range only.
+
 Calculate the different performance measures (accuracy, sensitivity, specificity, PPV, NPV, ROC curve) on a logistic regression using the full dataset. Don't forget the random effects!
+
+Then cross-validate the logistic regression and re-calculate performance on the testing folds. N.B. The cross-validation functions you already have should be tweaked: you need to calculate these new performance measures.
+
+N.B. the predict() function generates log odds (the full scale between minus and plus infinity). Log odds > 0 indicates a choice of 1, below a choice of 0.
+N.B. you need to decide whether calculate performance on each single test fold or save all the prediction for test folds in one datase, so to calculate overall performance.
+N.B. Now you have two levels of structure: subject and study. Should this impact your cross-validation?
+
+
 ```{r}
-modelrange2 = lme4::glmer(diagnosis~range + (1+trial|Subject)+(1 + diagnosis + trial|Subject), family = "binomial", data = df_features)
+modelrange2 = lme4::glmer(diagnosis~range + trial + (1+trial|Subject), family = "binomial", data = df_features, control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
 summary(modelrange2)
+
+modelrange2 = lme4::glmer(diagnosis~range + (1+trial|Subject), family = "binomial", data = df_features)
 
 #Create confusion matrix (0.5??)
 df_features$PredictionsPerc = predict(modelrange2)
@@ -42,56 +52,100 @@ df_features$Predictions[df_features$PredictionsPerc>0] = "1"
 df_features$Predictions[df_features$PredictionsPerc<0] = "0"
 confusionMatrix(data = df_features$Predictions,reference = df_features$diagnosis, positive = "0")
 
+RocCurve=roc(response=df_features$diagnosis,predictor = df_features$PredictionsPerc)
+auc(RocCurve)
+ci(RocCurve)
+plot(RocCurve,legacy.axes = TRUE)
+
+#Area under the curve 0.78, fair
 ```
 
-Then cross-validate the logistic regression and re-calculate performance on the testing folds. N.B. The cross-validation functions you already have should be tweaked: you need to calculate these new performance measures.
-
 ```{r}
+#Maybe use CVMS, allows you to have a list of models
+
 folds = createFolds(unique(df_features$Subject),k=5)
 
 n=1
-error.train1=NULL
-error.test1=NULL
+
+train_accuracy=NULL
+train_sen = NULL
+train_spec = NULL
+train_npv = NULL
+train_ppv = NULL
+train_auc=NULL
+train_ciLower=NULL
+train_ciHigher=NULL
+
+test_accuracy=NULL
+test_sen = NULL
+test_spec = NULL
+test_npv = NULL
+test_ppv = NULL
+test_auc=NULL
+test_ciLower=NULL
+test_ciHigher=NULL
+
+
 for (i in folds)
   {
   testD=df_features[df_features$trial %in% i,]
   trainD=df_features[!(df_features$trial %in% i),]
-  Mtrain = lme4::glmer(diagnosis~range + (1+trial|Subject), family = "binomial", data = df_features)
-  pred = predict(Mtrain,testD, allow.new.levels=TRUE)
-  error.train1[n]=modelr::rmse(Mtrain,trainD)
-  error.test1[n]=Metrics::rmse(testD$diagnosis,pred)
+  Mtrain = lme4::glmer(diagnosis~range + trial + (1+trial|Subject), family = "binomial", data = trainD, control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+  
+trainD$Predictionslogodds = predict(Mtrain,trainD)
+trainD$Predictions[trainD$Predictionslogodds>0] = "1"
+trainD$Predictions[trainD$Predictionslogodds<0] = "0"
+train_matrix = confusionMatrix(data = trainD$Predictions,reference = trainD$diagnosis, positive = "0")
+
+train_accuracy[n]=train_matrix$overall[1]
+train_sen[n]=train_matrix$byClass[1]
+train_spec[n]=train_matrix$byClass[2]
+train_ppv[n]=train_matrix$byClass[3]
+train_npv[n]=train_matrix$byClass[4]
+
+testD$Predictionslogodds = predict(Mtrain,testD)
+testD$Predictions[testD$Predictionslogodds>0] = "1"
+testD$Predictions[testD$Predictionslogodds<0] = "0"
+test_matrix = confusionMatrix(data = testD$Predictions,reference = testD$diagnosis, positive = "0")
+
+test_accuracy[n]=train_matrix$overall[1]
+test_sen[n]=train_matrix$byClass[1]
+test_spec[n]=train_matrix$byClass[2]
+test_ppv[n]=train_matrix$byClass[3]
+test_npv[n]=train_matrix$byClass[4]
+
+train_RocCurve=roc(response=trainD$diagnosis,predictor = trainD$Predictionslogodds)
+train_auc[n]=train_RocCurve$auc
+train_ciLower[n]=ci(train_RocCurve)[1]
+train_ciHigher[n]=ci(train_RocCurve)[2]
+
+test_RocCurve=roc(response=testD$diagnosis,predictor = testD$Predictionslogodds)
+test_auc[n]=test_RocCurve$auc
+test_ciLower[n]=ci(test_RocCurve)[1]
+test_ciHigher[n]=ci(test_RocCurve)[2]
 
   n=n+1
   
 }
 
-error.test1
-error.train1
+
 
 ```
 
-N.B. the predict() function generates probabilities (the full scale between 0 and 1). A probability > .5 indicates a choice of 1, below a choice of 0.
-N.B. you need to decide whether calculate performance on each single test fold or save all the prediction for test folds in one datase, so to calculate overall performance.
-N.B. Now you have two levels of structure: subject and study. Should this impact your cross-validation?
 
-### Question 2
+### Question 2 - Which single acoustic predictor is the best predictor of diagnosis?
 
-Which single predictor is the best predictor of diagnosis?
-
-### Question 3
+### Question 3 - Which combination of acoustic predictors is best for diagnosing schizophrenia?
 
 Now it's time to go wild! Use all (voice-related) variables and interactions you can think of. Compare models and select the best performing model you can find.
 
 Remember:
-- Cross-validation or AIC are crucial to build the best model!
-- After choosing the model, train it on all the data you have
-- Save the model: save(modelName, file = "BestModelForever.rda")
-- Create a Markdown that can: a) extract the features from new pitch files (basically your previous markdown), b) load your model (e.g. load("BestModelForever.rda")), and c) predict the diagnosis in the new dataframe.
-Send it to Celine and Riccardo by Monday (so they'll have time to run it before class)-
+- Out-of-sample error crucial to build the best model!
+- After choosing the model, send Celine and Riccardo the code of your model
 
-### Question 4: Report the results
+### Question 4: Properly report the results
 
-METHODS SECTION: how did you analyse the data?
+METHODS SECTION: how did you analyse the data? That is, how did you extract the data, designed the models and compared their performance?
 
 RESULTS SECTION: can you diagnose schizophrenia based on voice? which features are used? Comment on the difference between the different performance measures.
 
