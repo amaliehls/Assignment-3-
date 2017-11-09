@@ -25,6 +25,7 @@ df_features$X = NULL
 #Remove 0S and 1S in subject
 df_features$Subject = substr(df_features$Subject,3,5)
 df_features$Subject=as.factor(df_features$Subject)
+df_features$uniquesubject = unique(df_features$Subject)
 ```
 
 ### Question 1: Can you diagnose schizophrenia from pitch range only? If so, how well?
@@ -127,9 +128,26 @@ test_ciHigher[n]=ci(test_RocCurve)[2]
   n=n+1
   
 }
+traindf = data.frame(train_accuracy,train_sen,train_spec,train_npv,train_ppv,train_auc,train_ciLower,train_ciHigher)
 
+testdf = data.frame(test_accuracy,test_sen,test_spec,test_npv,test_ppv,test_auc,test_ciLower,test_ciHigher)
 
+```
 
+```{r}
+#i = predictor, x = data, 
+
+cvalid = function(i,data=x){
+  folds=createFolds(unique(x$Subject),k=5)
+  
+  temp_df = summary(mdl)$coefficients
+  temp_df = as.data.frame(temp_df)
+  temp_df = tibble::rownames_to_column(temp_df, "coef")
+  temp_df$R2m = r.squaredGLMM(mdl)[1]
+  temp_df$R2c = r.squaredGLMM(mdl)[2]
+  temp_df$n = n
+  return(temp_df)
+}
 ```
 
 
