@@ -7,15 +7,6 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-```
-
-## Assignment 3 - Diagnosing schizophrenia from voice
-
-In the previous part of the assignment you generated a bunch of "features", that is, of quantitative descriptors of voice in schizophrenia, focusing on pitch.
-In the course of this assignment we will use them to try to automatically diagnose schizophrenia from voice only, that is, relying on the set of features you produced last time, we will try to produce an automated classifier.
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
 setwd("~/Desktop/R Saves Semester 3/Assignment 3")
 library(crqa); library(tseriesChaos); library(nonlinearTseries); library(SparseM); library(lme4); library(dplyr); library(lmerTest); library(MuMIn): library(caret); library(pROC)
 df_features = read.csv("~/Desktop/R Saves Semester 3/Assignment 3/df_final.dms")
@@ -25,28 +16,27 @@ df_features$X = NULL
 #Remove 0S and 1S in subject
 df_features$Subject = substr(df_features$Subject,3,5)
 df_features$Subject=as.factor(df_features$Subject)
-df_features$uniquesubject = unique(df_features$Subject)
+df_features$uniquesubject=as.numeric(df_features$Subject)
+
 ```
+
+## Assignment 3 - Diagnosing schizophrenia from voice
+
+In the previous part of the assignment you generated a bunch of "features", that is, of quantitative descriptors of voice in schizophrenia, focusing on pitch.
+In the course of this assignment we will use them to try to automatically diagnose schizophrenia from voice only, that is, relying on the set of features you produced last time, we will try to produce an automated classifier.
 
 ### Question 1: Can you diagnose schizophrenia from pitch range only? If so, how well?
 
 Build a logistic regression to see whether you can diagnose schizophrenia from pitch range only.
 
-Calculate the different performance measures (accuracy, sensitivity, specificity, PPV, NPV, ROC curve) on a logistic regression using the full dataset. Don't forget the random effects!
-
-Then cross-validate the logistic regression and re-calculate performance on the testing folds. N.B. The cross-validation functions you already have should be tweaked: you need to calculate these new performance measures.
-
-N.B. the predict() function generates log odds (the full scale between minus and plus infinity). Log odds > 0 indicates a choice of 1, below a choice of 0.
-N.B. you need to decide whether calculate performance on each single test fold or save all the prediction for test folds in one datase, so to calculate overall performance.
-N.B. Now you have two levels of structure: subject and study. Should this impact your cross-validation?
-
-
 ```{r}
 modelrange2 = lme4::glmer(diagnosis~range + trial + (1+trial|Subject), family = "binomial", data = df_features, control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
 summary(modelrange2)
+```
 
-modelrange2 = lme4::glmer(diagnosis~range + (1+trial|Subject), family = "binomial", data = df_features)
+Calculate the different performance measures (accuracy, sensitivity, specificity, PPV, NPV, ROC curve) on a logistic regression using the full dataset. Don't forget the random effects!
 
+```{r}
 #Create confusion matrix (0.5??)
 df_features$PredictionsPerc = predict(modelrange2)
 df_features$Predictions[df_features$PredictionsPerc>0] = "1"
@@ -61,10 +51,17 @@ plot(RocCurve,legacy.axes = TRUE)
 #Area under the curve 0.78, fair
 ```
 
+Then cross-validate the logistic regression and re-calculate performance on the testing folds. N.B. The cross-validation functions you already have should be tweaked: you need to calculate these new performance measures.
+
+N.B. the predict() function generates log odds (the full scale between minus and plus infinity). Log odds > 0 indicates a choice of 1, below a choice of 0.
+N.B. you need to decide whether calculate performance on each single test fold or save all the prediction for test folds in one datase, so to calculate overall performance.
+N.B. Now you have two levels of structure: subject and study. Should this impact your cross-validation?
+
 ```{r}
 #Maybe use CVMS, allows you to have a list of models
+#Cross validation
 
-folds = createFolds(unique(df_features$Subject),k=5)
+folds = createFolds(unique(df_features$uniquesubject),k=5)
 
 n=1
 
@@ -89,11 +86,11 @@ test_ciHigher=NULL
 
 for (i in folds)
   {
-  testD=df_features[df_features$trial %in% i,]
-  trainD=df_features[!(df_features$trial %in% i),]
+  testD=df_features[df_features$uniquesubject %in% i,]
+  trainD=df_features[!(df_features$uniquesubject %in% i),]
   Mtrain = lme4::glmer(diagnosis~range + trial + (1+trial|Subject), family = "binomial", data = trainD, control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
   
-trainD$Predictionslogodds = predict(Mtrain,trainD)
+trainD$Predictionslogodds = predict(Mtrain,trainD,allow.new.levels=TRUE)
 trainD$Predictions[trainD$Predictionslogodds>0] = "1"
 trainD$Predictions[trainD$Predictionslogodds<0] = "0"
 train_matrix = confusionMatrix(data = trainD$Predictions,reference = trainD$diagnosis, positive = "0")
@@ -104,16 +101,16 @@ train_spec[n]=train_matrix$byClass[2]
 train_ppv[n]=train_matrix$byClass[3]
 train_npv[n]=train_matrix$byClass[4]
 
-testD$Predictionslogodds = predict(Mtrain,testD)
+testD$Predictionslogodds = predict(Mtrain,testD,allow.new.levels=TRUE)
 testD$Predictions[testD$Predictionslogodds>0] = "1"
 testD$Predictions[testD$Predictionslogodds<0] = "0"
 test_matrix = confusionMatrix(data = testD$Predictions,reference = testD$diagnosis, positive = "0")
 
 test_accuracy[n]=train_matrix$overall[1]
-test_sen[n]=train_matrix$byClass[1]
-test_spec[n]=train_matrix$byClass[2]
-test_ppv[n]=train_matrix$byClass[3]
-test_npv[n]=train_matrix$byClass[4]
+test_sen[n]=test_matrix$byClass[1]
+test_spec[n]=test_matrix$byClass[2]
+test_ppv[n]=test_matrix$byClass[3]
+test_npv[n]=test_matrix$byClass[4]
 
 train_RocCurve=roc(response=trainD$diagnosis,predictor = trainD$Predictionslogodds)
 train_auc[n]=train_RocCurve$auc
@@ -134,24 +131,58 @@ testdf = data.frame(test_accuracy,test_sen,test_spec,test_npv,test_ppv,test_auc,
 
 ```
 
+### Question 2 - Which single acoustic predictor is the best predictor of diagnosis?
+
+
 ```{r}
 #i = predictor, x = data, 
 
-cvalid = function(i,data=x){
-  folds=createFolds(unique(x$Subject),k=5)
+cvalid = function(i, p){
+
+test_accuracy=NULL
+test_sen = NULL
+test_spec = NULL
+test_npv = NULL
+test_ppv = NULL
+test_auc=NULL
+test_ciLower=NULL
+test_ciHigher=NULL
+
+n=1
+
+for (fold in folds)
+  {
+  testD=df_features[df_features$uniquesubject %in% fold,]
+  trainD=df_features[!(df_features$uniquesubject %in% fold),]
+  Mtrain = i
+
+testD$Predictionslogodds = predict(Mtrain,testD,allow.new.levels=TRUE)
+testD$Predictions[testD$Predictionslogodds>0] = "1"
+testD$Predictions[testD$Predictionslogodds<0] = "0"
+test_matrix = confusionMatrix(data = testD$Predictions,reference = testD$diagnosis, positive = "0")
+
+test_accuracy[n]=test_matrix$overall[1]
+test_sen[n]=test_matrix$byClass[1]
+test_spec[n]=test_matrix$byClass[2]
+test_ppv[n]=test_matrix$byClass[3]
+test_npv[n]=test_matrix$byClass[4]
+
+test_RocCurve=roc(response=testD$diagnosis,predictor = testD$Predictionslogodds)
+test_auc[n]=test_RocCurve$auc
+test_ciLower[n]=ci(test_RocCurve)[1]
+test_ciHigher[n]=ci(test_RocCurve)[2]
+
+  n=n+1
   
-  temp_df = summary(mdl)$coefficients
-  temp_df = as.data.frame(temp_df)
-  temp_df = tibble::rownames_to_column(temp_df, "coef")
-  temp_df$R2m = r.squaredGLMM(mdl)[1]
-  temp_df$R2c = r.squaredGLMM(mdl)[2]
-  temp_df$n = n
-  return(temp_df)
+}
+testdf = data.frame(mean(test_accuracy),mean(test_sen),mean(test_spec),mean(test_npv),mean(test_ppv),mean(test_auc),mean(test_ciLower),mean(test_ciHigher))
+
+return(testdf)
 }
 ```
 
 
-### Question 2 - Which single acoustic predictor is the best predictor of diagnosis?
+
 
 ### Question 3 - Which combination of acoustic predictors is best for diagnosing schizophrenia?
 
