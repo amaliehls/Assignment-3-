@@ -9,6 +9,9 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 setwd("~/Desktop/R Saves Semester 3/Assignment 3")
 library(crqa); library(tseriesChaos); library(nonlinearTseries); library(SparseM); library(lme4); library(dplyr); library(lmerTest); library(MuMIn): library(caret); library(pROC); library(groupdata2)
+```
+
+```{r}
 df_features = read.csv("~/Desktop/R Saves Semester 3/Assignment 3/df_final.dms")
 #Remove the columns X and X.1
 df_features$X.1 = NULL
@@ -20,7 +23,7 @@ df_features$uniquesubject=as.numeric(df_features$Subject)
 
 
 numfolds = 5
-df_features = fold(df_features,k = numfolds, id_col = "uniquesubject", method = "n_dist",remove_missing_starts = FALSE)
+df_features = groupdata2::fold(df_features,k = numfolds, id_col = "uniquesubject", method = "n_dist",remove_missing_starts = FALSE)
 colnames(df_features)[18]="folds"
 
 
@@ -49,9 +52,9 @@ df_features$Predictions[df_features$PredictionsPerc>0] = "1"
 df_features$Predictions[df_features$PredictionsPerc<0] = "0"
 confusionMatrix(data = df_features$Predictions,reference = df_features$diagnosis, positive = "0")
 
-RocCurve=roc(response=df_features$diagnosis,predictor = df_features$PredictionsPerc)
-auc(RocCurve)
-ci(RocCurve)
+RocCurve=pROC::roc(response=df_features$diagnosis,predictor = df_features$PredictionsPerc)
+pROC::auc(RocCurve)
+pROC::ci(RocCurve)
 plot(RocCurve,legacy.axes = TRUE)
 
 #Area under the curve 0.78, fair
@@ -96,10 +99,10 @@ test_spec[n]=test_matrix$byClass[2]
 test_ppv[n]=test_matrix$byClass[3]
 test_npv[n]=test_matrix$byClass[4]
 
-test_RocCurve=roc(response=testD$diagnosis,predictor = testD$Predictionslogodds)
+test_RocCurve=pROC::roc(response=testD$diagnosis,predictor = testD$Predictionslogodds)
 test_auc[n]=test_RocCurve$auc
-test_ciLower[n]=ci(test_RocCurve)[1]
-test_ciHigher[n]=ci(test_RocCurve)[2]
+test_ciLower[n]=pROC::ci(test_RocCurve)[1]
+test_ciHigher[n]=pROC::ci(test_RocCurve)[2]
 
   n=n+1
   
@@ -197,13 +200,13 @@ predictor_df = rbind(PR, DET, NRLINE, maxL, L, ENTR, LAM, TT, sd, range)
 ```
 
 
-```{r}
-
-```
-
 ### Question 3 - Which combination of acoustic predictors is best for diagnosing schizophrenia?
 
 Now it's time to go wild! Use all (voice-related) variables and interactions you can think of. Compare models and select the best performing model you can find.
+
+```{r}
+cvalid(lme4::glmer(diagnosis~range + TT + trial + (1+trial|Subject), family = "binomial", data = trainD, control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE)))
+```
 
 Remember:
 - Out-of-sample error crucial to build the best model!
