@@ -8,7 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 setwd("~/Desktop/R Saves Semester 3/Assignment 3")
-library(crqa); library(tseriesChaos); library(nonlinearTseries); library(SparseM); library(lme4); library(dplyr); library(lmerTest); library(MuMIn): library(caret); library(pROC); library(groupdata2)
+library(crqa); library(tseriesChaos); library(nonlinearTseries); library(SparseM); library(lme4); library(dplyr); library(lmerTest); library(MuMIn); library(caret); library(pROC); library(groupdata2)
 ```
 
 ```{r}
@@ -205,7 +205,17 @@ predictor_df = rbind(PR, DET, NRLINE, maxL, L, ENTR, LAM, TT, sd, range)
 Now it's time to go wild! Use all (voice-related) variables and interactions you can think of. Compare models and select the best performing model you can find.
 
 ```{r}
+#Winning model
 cvalid(lme4::glmer(diagnosis~range + TT + trial + (1+trial|Subject), family = "binomial", data = trainD, control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE)))
+
+cvalid(lme4::glmer(diagnosis~range + ENTR + trial + (1+trial|Subject), family = "binomial", data = trainD, control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE)))
+
+cvalid(lme4::glmer(diagnosis~range * TT + trial + (1+trial|Subject), family = "binomial", data = trainD, control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE)))
+
+
+cvalid(lme4::glmer(diagnosis~range + TT * trial + (1+trial|Subject), family = "binomial", data = trainD, control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE)))
+
+cvalid(lme4::glmer(diagnosis~range + TT + ENTR + trial + (1+trial|Subject), family = "binomial", data = trainD, control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE)))
 ```
 
 Remember:
